@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ok, preflight, withCors } from "@/lib/api/response";
+import { checkRateLimit, tooManyRequests } from "@/lib/api/rate-limit";
 import packageJson from "../../../../package.json" assert { type: "json" };
 
-export async function GET(_req: NextRequest) {
+export async function GET(request: NextRequest) {
   const openapi = {
     openapi: "3.1.0",
     info: {
@@ -205,5 +207,17 @@ export async function GET(_req: NextRequest) {
     security: [{ bearerAuth: [] }],
   } as const;
 
-  return NextResponse.json(openapi);
+  const rl = checkRateLimit(request, { limit: 60, windowMs: 60_000, keyPrefix: "rl:openapi" });
+  if (!rl.allowed) {
+    return withCors(tooManyRequests("Rate limit exceeded", rl.headers), request);
+  }
+
+  const response = withCors(NextResponse.json(openapi), request);
+  response.headers.set("X-RateLimit-Limit", rl.headers.get("X-RateLimit-Limit") || "");
+  response.headers.set("X-RateLimit-Remaining", rl.headers.get("X-RateLimit-Remaining") || "");
+  return response;
+}
+
+export function OPTIONS(request: NextRequest) {
+  return preflight(request);
 }

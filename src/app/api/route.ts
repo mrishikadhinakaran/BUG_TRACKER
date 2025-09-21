@@ -1,7 +1,13 @@
 import { NextRequest } from "next/server";
 import { ok, preflight, withCors } from "@/lib/api/response";
+import { checkRateLimit, tooManyRequests } from "@/lib/api/rate-limit";
 
 export async function GET(request: NextRequest) {
+  const rl = checkRateLimit(request, { limit: 120, windowMs: 60_000, keyPrefix: "rl:api-index" });
+  if (!rl.allowed) {
+    return withCors(tooManyRequests("Rate limit exceeded", rl.headers), request);
+  }
+
   const base = "/api" as const;
   const routes = [
     { method: "GET", path: `${base}`, description: "API index" },
@@ -19,7 +25,10 @@ export async function GET(request: NextRequest) {
     { method: "GET", path: `${base}/bugs/[id]/history`, description: "Bug change history" },
   ];
 
-  return withCors(ok({ name: "Bug Tracker API", version: "v1", routes }), request);
+  const response = withCors(ok({ name: "Bug Tracker API", version: "v1", routes }), request);
+  response.headers.set("X-RateLimit-Limit", rl.headers.get("X-RateLimit-Limit") || "");
+  response.headers.set("X-RateLimit-Remaining", rl.headers.get("X-RateLimit-Remaining") || "");
+  return response;
 }
 
 export function OPTIONS(request: NextRequest) {
