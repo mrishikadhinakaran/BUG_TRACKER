@@ -29,7 +29,12 @@ export default function RegisterPage() {
     }
     const { error } = await authClient.signUp.email({ name, email, password });
     if (error) {
-      setError("Registration failed");
+      const map: Record<string, string> = {
+        USER_ALREADY_EXISTS: "Email already registered",
+        INVALID_EMAIL: "Please enter a valid email address",
+        WEAK_PASSWORD: "Password is too weak",
+      };
+      setError(map[error.code as keyof typeof map] || error.message || "Registration failed");
       setLoading(false);
       return;
     }

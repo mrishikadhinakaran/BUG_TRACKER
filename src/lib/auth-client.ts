@@ -1,10 +1,10 @@
-
 "use client"
 import { createAuthClient } from "better-auth/react"
 import { useEffect, useState } from "react"
 
 export const authClient = createAuthClient({
-   baseURL: typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL,
+  // Point to the Better Auth API route
+  baseURL: "/api/auth",
   fetchOptions: {
       headers: {
         Authorization: `Bearer ${typeof window !== 'undefined' ? localStorage.getItem("bearer_token") : ""}`,
