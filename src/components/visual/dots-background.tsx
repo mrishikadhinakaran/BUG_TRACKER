@@ -19,7 +19,7 @@ export const DotsBackground = ({
   opacity = 1,
 }: DotsBackgroundProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const rafRef = useRef<number>();
+  const rafRef = useRef<number | null>(null);
   const mouseRef = useRef<{ x: number; y: number; active: boolean }>({ x: 0, y: 0, active: false });
 
   useEffect(() => {
@@ -153,7 +153,7 @@ export const DotsBackground = ({
     canvas.addEventListener("touchend", handleLeave, { passive: true });
 
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       window.removeEventListener("resize", handleResize);
       canvas.removeEventListener("mousemove", handleMouse);
       canvas.removeEventListener("mouseleave", handleLeave);

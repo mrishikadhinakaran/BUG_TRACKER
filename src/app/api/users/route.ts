@@ -45,26 +45,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: user });
     }
     
-    const search = searchParams.get('search') || '';
+    const search = searchParams.get('search');
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '10')));
     const offset = (page - 1) * pageSize;
     
-    let query = db.select().from(users);
-    
+    // Execute query based on search filter
+    let allUsers;
     if (search) {
-      query = query.where(
-        or(
-          like(users.name, `%${search}%`),
-          like(users.email, `%${search}%`)
+      allUsers = await db
+        .select()
+        .from(users)
+        .where(
+          or(
+            like(users.name, `%${search}%`),
+            like(users.email, `%${search}%`)
+          )
         )
-      );
+        .orderBy(desc(users.createdAt));
+    } else {
+      allUsers = await db
+        .select()
+        .from(users)
+        .orderBy(desc(users.createdAt));
     }
     
-    const allUsers = await query.orderBy(desc(users.createdAt));
-    
     const paginatedUsers = allUsers.slice(offset, offset + pageSize);
-    
     const totalPages = Math.ceil(allUsers.length / pageSize);
     
     return NextResponse.json({
@@ -93,7 +99,7 @@ export async function POST(request: NextRequest) {
     
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Validation error', code: 'VALIDATION_ERROR', details: validationResult.error.errors },
+        { error: 'Validation error', code: 'VALIDATION_ERROR', details: validationResult.error.issues },
         { status: 400 }
       );
     }
@@ -151,7 +157,7 @@ export async function PUT(request: NextRequest) {
     
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Validation error', code: 'VALIDATION_ERROR', details: validationResult.error.errors },
+        { error: 'Validation error', code: 'VALIDATION_ERROR', details: validationResult.error.issues },
         { status: 400 }
       );
     }

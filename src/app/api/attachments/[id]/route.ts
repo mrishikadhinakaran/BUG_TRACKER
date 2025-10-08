@@ -15,9 +15,11 @@ async function deleteFile(filePath: string): Promise<void> {
   }
 }
 
+type Params = Promise<{ id: string }>;
+
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Params }
 ) {
   try {
     // Remove auth check for now - allow any deletion for testing
@@ -29,7 +31,7 @@ export async function DELETE(
     //   );
     // }
 
-    const { id } = params;
+    const { id } = await params;
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json(
         { error: 'Valid attachment ID is required', code: 'INVALID_ID' },
@@ -73,7 +75,7 @@ export async function DELETE(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Params }
 ) {
   try {
     // Remove auth check for now
@@ -85,7 +87,7 @@ export async function GET(
     //   );
     // }
 
-    const { id } = params;
+    const { id } = await params;
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json(
         { error: 'Valid attachment ID is required', code: 'INVALID_ID' },

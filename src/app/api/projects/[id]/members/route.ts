@@ -97,7 +97,7 @@ export async function POST(request: NextRequest, { params }: { params: Params })
       return NextResponse.json({ 
         error: 'Validation error',
         code: 'VALIDATION_ERROR',
-        details: validationResult.error.errors
+        details: validationResult.error.issues
       }, { status: 400 });
     }
 
@@ -196,7 +196,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Params 
       return NextResponse.json({ 
         error: 'Validation error',
         code: 'VALIDATION_ERROR',
-        details: validationResult.error.errors
+        details: validationResult.error.issues
       }, { status: 400 });
     }
 

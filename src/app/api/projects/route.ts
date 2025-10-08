@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { projects, users } from '@/db/schema';
-import { eq, like, or, desc } from 'drizzle-orm';
+import { eq, like, or, desc, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 const PROJECT_STATUSES = ['active', 'archived'] as const;
@@ -52,13 +52,21 @@ export async function GET(request: NextRequest) {
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '10')));
     const offset = (page - 1) * pageSize;
     
-    let query = db.select().from(projects);
-    
+    // Execute query based on status filter
+    let allProjects;
     if (status && PROJECT_STATUSES.includes(status as any)) {
-      query = query.where(eq(projects.status, status));
+      allProjects = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.status, status as any))
+        .orderBy(desc(projects.createdAt));
+    } else {
+      allProjects = await db
+        .select()
+        .from(projects)
+        .orderBy(desc(projects.createdAt));
     }
     
-    const allProjects = await query.orderBy(desc(projects.createdAt));
     const paginatedProjects = allProjects.slice(offset, offset + pageSize);
     const totalPages = Math.ceil(allProjects.length / pageSize);
     
@@ -88,7 +96,7 @@ export async function POST(request: NextRequest) {
     
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Validation error', code: 'VALIDATION_ERROR', details: validationResult.error.errors },
+        { error: 'Validation error', code: 'VALIDATION_ERROR', details: validationResult.error.issues },
         { status: 400 }
       );
     }
@@ -157,7 +165,7 @@ export async function PUT(request: NextRequest) {
     
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Validation error', code: 'VALIDATION_ERROR', details: validationResult.error.errors },
+        { error: 'Validation error', code: 'VALIDATION_ERROR', details: validationResult.error.issues },
         { status: 400 }
       );
     }

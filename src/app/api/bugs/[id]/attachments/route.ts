@@ -3,16 +3,18 @@ import { db } from '@/db';
 import { attachments, bugs, users } from '@/db/schema';
 import { eq, and, desc, asc } from 'drizzle-orm';
 
+type Params = Promise<{ id: string }>;
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Params }
 ) {
   try {
     // Remove auth check for now
     // const user = await getCurrentUser(request);
     // if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
-    const id = params.id;
+    const { id } = await params;
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 
         error: 'Valid bug ID is required',

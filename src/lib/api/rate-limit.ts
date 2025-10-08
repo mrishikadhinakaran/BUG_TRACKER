@@ -17,7 +17,6 @@ export function getClientId(req: NextRequest): string {
   return (
     req.headers.get("cf-connecting-ip") ||
     req.headers.get("x-real-ip") ||
-    // @ts-expect-error ip may exist in some runtimes
     (req as any).ip ||
     "unknown"
   );

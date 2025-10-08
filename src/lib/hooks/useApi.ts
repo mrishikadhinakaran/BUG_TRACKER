@@ -17,9 +17,9 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
   pagination?: PaginationInfo;
 }
 
-function authHeader() {
+function authHeader(): { Authorization?: string } | null {
   const token = typeof window !== 'undefined' ? localStorage.getItem('bearer_token') || '' : '';
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return token ? { Authorization: `Bearer ${token}` } : null;
 }
 
 export function useApiCall<T>(
@@ -39,12 +39,21 @@ export function useApiCall<T>(
       setError(null);
 
       try {
+        const authHeaders = authHeader();
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        
+        if (authHeaders?.Authorization) {
+          headers.Authorization = authHeaders.Authorization;
+        }
+        
+        if (options?.headers) {
+          Object.assign(headers, options.headers);
+        }
+
         const response = await fetch(url, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...authHeader(),
-            ...options?.headers,
-          },
+          headers,
           ...options,
         });
 
@@ -93,13 +102,22 @@ export function useApiMutation<TData, TVariables = any>() {
     setError(null);
 
     try {
+      const authHeaders = authHeader();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (authHeaders?.Authorization) {
+        headers.Authorization = authHeaders.Authorization;
+      }
+      
+      if (options?.headers) {
+        Object.assign(headers, options.headers);
+      }
+
       const response = await fetch(url, {
         method: options?.method || 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeader(),
-          ...options?.headers,
-        },
+        headers,
         body: variables ? JSON.stringify(variables) : options?.body,
         ...options,
       });

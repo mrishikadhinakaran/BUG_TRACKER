@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { bugs, projects, users } from '@/db/schema';
-import { eq, like, and, or, desc } from 'drizzle-orm';
+import { eq, like, and, or, desc, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 const BUG_PRIORITIES = ['low', 'medium', 'high', 'critical'] as const;
@@ -89,6 +89,7 @@ export async function GET(request: NextRequest) {
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '10')));
     const offset = (page - 1) * pageSize;
     
+    // Build base query without joins first
     let query = db
       .select({
         id: bugs.id,
@@ -100,30 +101,18 @@ export async function GET(request: NextRequest) {
         reporterId: bugs.reporterId,
         assigneeId: bugs.assigneeId,
         createdAt: bugs.createdAt,
-        updatedAt: bugs.updatedAt,
-        project: {
-          id: projects.id,
-          name: projects.name,
-          key: projects.key
-        },
-        reporter: {
-          id: users.id,
-          name: users.name,
-          email: users.email
-        }
+        updatedAt: bugs.updatedAt
       })
-      .from(bugs)
-      .innerJoin(projects, eq(bugs.projectId, projects.id))
-      .innerJoin(users, eq(bugs.reporterId, users.id));
+      .from(bugs);
     
     const conditions = [];
     
     if (status && BUG_STATUSES.includes(status as any)) {
-      conditions.push(eq(bugs.status, status));
+      conditions.push(eq(bugs.status, status as any));
     }
     
     if (priority && BUG_PRIORITIES.includes(priority as any)) {
-      conditions.push(eq(bugs.priority, priority));
+      conditions.push(eq(bugs.priority, priority as any));
     }
     
     if (projectId && !isNaN(parseInt(projectId))) {
@@ -143,20 +132,61 @@ export async function GET(request: NextRequest) {
       );
     }
     
+    // Execute query based on conditions
+    let baseResults;
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      baseResults = await db
+        .select()
+        .from(bugs)
+        .where(and(...conditions))
+        .orderBy(desc(bugs.createdAt));
+    } else {
+      baseResults = await db
+        .select()
+        .from(bugs)
+        .orderBy(desc(bugs.createdAt));
     }
     
-    const allBugs = await query.orderBy(desc(bugs.createdAt));
-    const paginatedBugs = allBugs.slice(offset, offset + pageSize);
-    const totalPages = Math.ceil(allBugs.length / pageSize);
+    // Now fetch the related data for each bug
+    const enrichedResults = await Promise.all(baseResults.map(async (bug) => {
+      // Fetch project
+      const [projectResult] = await db
+        .select({
+          id: projects.id,
+          name: projects.name,
+          key: projects.key
+        })
+        .from(projects)
+        .where(eq(projects.id, bug.projectId))
+        .limit(1);
+      
+      // Fetch reporter
+      const [reporterResult] = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email
+        })
+        .from(users)
+        .where(eq(users.id, bug.reporterId))
+        .limit(1);
+      
+      return {
+        ...bug,
+        project: projectResult,
+        reporter: reporterResult
+      };
+    }));
+    
+    const paginatedBugs = enrichedResults.slice(offset, offset + pageSize);
+    const totalPages = Math.ceil(enrichedResults.length / pageSize);
     
     return NextResponse.json({
       data: paginatedBugs,
       pagination: {
         page,
         pageSize,
-        total: allBugs.length,
+        total: enrichedResults.length,
         totalPages,
       }
     });
@@ -177,7 +207,7 @@ export async function POST(request: NextRequest) {
     
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Validation error', code: 'VALIDATION_ERROR', details: validationResult.error.errors },
+        { error: 'Validation error', code: 'VALIDATION_ERROR', details: validationResult.error.issues },
         { status: 400 }
       );
     }
@@ -255,7 +285,7 @@ export async function PUT(request: NextRequest) {
     
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Validation error', code: 'VALIDATION_ERROR', details: validationResult.error.errors },
+        { error: 'Validation error', code: 'VALIDATION_ERROR', details: validationResult.error.issues },
         { status: 400 }
       );
     }

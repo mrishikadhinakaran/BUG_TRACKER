@@ -3,12 +3,15 @@ import { db } from '@/db';
 import { attachments, projects, users } from '@/db/schema';
 import { eq, and, desc, asc, sql } from 'drizzle-orm';
 
+type Params = Promise<{ id: string }>;
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Params }
 ) {
   try {
-    const projectId = parseInt(params.id);
+    const { id } = await params;
+    const projectId = parseInt(id);
     
     if (isNaN(projectId)) {
       return NextResponse.json({ 
